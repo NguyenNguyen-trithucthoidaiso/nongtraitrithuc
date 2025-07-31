@@ -1,1 +1,477 @@
-<!DOCTYPE html> <html lang="vi"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>Nông Trại Tri Thức</title> <script src="https://cdn.tailwindcss.com"></script> <link rel="preconnect" href="https://fonts.googleapis.com"> <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin> <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;700&display=swap" rel="stylesheet"> <style> body { font-family: 'Quicksand', sans-serif; background-color: #EFFAF3; } .farm-bg { background-color: #A47551; background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%238c6239' fill-opacity='0.4' fill-rule='evenodd'%3E%3Cpath d='M0 40L40 0H20L0 20M40 40V20L20 40'/%3E%3C/g%3E%3C/svg%3E"); } .plant-plot { background-color: rgba(0,0,0,0.1); border: 2px dashed rgba(255,255,255,0.2); transition: background-color 0.3s; } .plant-plot:hover { background-color: rgba(0,0,0,0.2); } .plant { transition: transform 0.3s ease, filter 0.5s ease; cursor: pointer; image-rendering: pixelated; } .plant:hover { transform: scale(1.15); } .plant-problem { animation: pulse-problem 1.5s infinite; } @keyframes pulse-problem { 0% { filter: drop-shadow(0 0 2px rgba(255, 59, 59, 0.9)); } 50% { filter: drop-shadow(0 0 10px rgba(255, 59, 59, 0.5)); } 100% { filter: drop-shadow(0 0 2px rgba(255, 59, 59, 0.9)); } } .modal { transition: opacity 0.3s ease, transform 0.3s ease; } .modal-hidden { opacity: 0; transform: translateY(20px); pointer-events: none; } .custom-btn { transition: all 0.2s ease; } .custom-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.15); } .tab-btn.active { background-color: #16a34a; color: white; } </style> </head> <body class="text-gray-800 flex flex-col items-center justify-center min-h-screen p-2 sm:p-4"> <div class="w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6"> <div class="lg:col-span-1 bg-white/70 backdrop-blur-sm p-4 rounded-2xl shadow-lg border border-green-200 flex flex-col"> <header class="text-center mb-4"><h1 class="text-3xl font-bold text-green-800">Nông Trại Tri Thức</h1><p class="text-md text-green-600">Phiên bản 2.0</p></header> <div id="status-bar" class="grid grid-cols-2 gap-4 text-center mb-4"><div class="bg-green-100 p-3 rounded-lg"><div class="font-bold text-green-800">Ngày</div><div id="day-counter" class="text-2xl font-bold">1</div></div><div class="bg-yellow-100 p-3 rounded-lg"><div class="font-bold text-yellow-800">Vàng</div><div id="gold-counter" class="text-2xl font-bold">500</div></div></div> <div class="flex-grow bg-gray-50 rounded-lg p-4"><div class="flex border-b mb-4"><button id="tab-inventory" class="tab-btn flex-1 p-2 font-bold text-gray-600">Kho Vật Tư</button><button id="tab-market" class="tab-btn flex-1 p-2 font-bold text-gray-600">Chợ Nông Sản</button></div><div id="inventory-panel"><p class="text-center text-sm text-gray-500 mb-2">Vật phẩm bạn đang có.</p><div id="inventory-list" class="space-y-2 max-h-60 overflow-y-auto"></div></div><div id="market-panel" class="hidden"><p class="text-center text-sm text-gray-500 mb-2">Bán lúa đã thu hoạch tại đây.</p><div id="market-info" class="text-center"><img src="https://i.imgur.com/2J2Gqga.png" alt="[Hình ảnh Bó lúa]" class="w-20 h-20 mx-auto"><p class="text-lg font-bold">Lúa Tươi: <span id="harvested-rice">0</span> bó</p><p class="text-sm text-gray-500">Giá bán: 50 Vàng / bó</p><button id="sell-rice-btn" class="custom-btn mt-4 bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg w-full">Bán Hết</button></div></div></div> <footer class="text-center mt-4"><button id="next-day-btn" class="custom-btn bg-blue-600 text-white font-bold py-3 px-8 rounded-full shadow-lg w-full">Qua Ngày Mới</button></footer> </div> <main class="lg:col-span-2 farm-bg w-full rounded-2xl shadow-inner p-4 sm:p-6"><div id="farm-plot" class="grid grid-cols-4 sm:grid-cols-5 gap-4 h-full"></div></main> </div> <div id="main-modal" class="modal modal-hidden fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50"><div id="modal-content" class="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 w-full max-w-lg transform"></div></div> <script> const PLANT_DB={rice:{name:"Lúa",growthStages:[{stage:0,days:0,img:"https://i.imgur.com/JtB2qN5.png"},{stage:1,days:3,img:"https://i.imgur.com/dEclp6s.png"},{stage:2,days:6,img:"https://i.imgur.com/e37sTzE.png"},{stage:3,days:9,img:"https://i.imgur.com/2J2Gqga.png"}],maxGrowthDays:9}};const PROBLEM_DB={dao_on:{name:"Bệnh Đạo ôn",symptom:"Trên lá có các vết bệnh hình thoi, tâm màu xám tro.",diagnosisQuestion:"Dựa vào triệu chứng, đây là bệnh gì?",diagnosisOptions:["Bệnh Khô vằn","Bệnh Đạo ôn","Bệnh Vàng lá"],correctAnswer:"Bệnh Đạo ôn"},ray_nau:{name:"Rầy nâu",symptom:"Cây lúa bị vàng, khô héo, có nhiều rầy nâu bám ở gốc.",diagnosisQuestion:"Quan sát gốc cây, tác nhân gây hại là gì?",diagnosisOptions:["Nhện gié","Sâu đục thân","Rầy nâu"],correctAnswer:"Rầy nâu"}};const ITEM_DB={bio_fungicide:{name:"Thuốc trừ nấm sinh học",description:"Dùng cho bệnh Đạo ôn. An toàn cho đất.",cost:80,target:"dao_on"},chemical_insecticide:{name:"Thuốc trừ sâu hóa học",description:"Diệt trừ Rầy nâu. Có thể ảnh hưởng đất.",cost:60,target:"ray_nau"},ladybug:{name:"Bọ rùa (Thiên địch)",description:"Thả bọ rùa để ăn Rầy nâu. Biện pháp bền vững.",cost:150,target:"ray_nau"}};let gameState={day:1,gold:500,plots:[],inventory:[],harvestedRice:0};const farmPlot=document.getElementById("farm-plot"),dayCounter=document.getElementById("day-counter"),goldCounter=document.getElementById("gold-counter"),nextDayBtn=document.getElementById("next-day-btn"),mainModal=document.getElementById("main-modal"),modalContent=document.getElementById("modal-content"),tabInventory=document.getElementById("tab-inventory"),tabMarket=document.getElementById("tab-market"),inventoryPanel=document.getElementById("inventory-panel"),marketPanel=document.getElementById("market-panel"),inventoryList=document.getElementById("inventory-list"),harvestedRiceEl=document.getElementById("harvested-rice"),sellRiceBtn=document.getElementById("sell-rice-btn");function initGame(){loadGame(),0===gameState.plots.length&&[...Array(15)].forEach((e,t)=>{gameState.plots.push({id:t,plant:null})}),renderAll(),setupListeners()}function saveGame(){localStorage.setItem("nongTraiTriThucSave",JSON.stringify(gameState))}function loadGame(){const e=localStorage.getItem("nongTraiTriThucSave");e&&(gameState=JSON.parse(e))}function nextDay(){gameState.day++,gameState.plots.forEach(e=>{e.plant&&!e.plant.problem&&e.plant.daysOld++});const e=gameState.plots.filter(e=>e.plant&&!e.plant.problem);if(e.length>0&&.25>Math.random()){const t=e[Math.floor(Math.random()*e.length)],o=Object.keys(PROBLEM_DB),a=o[Math.floor(Math.random()*o.length)];t.plant.problem=a}renderAll(),saveGame()}function renderAll(){renderFarm(),renderStatusBar(),renderActionPanel()}function renderStatusBar(){dayCounter.textContent=gameState.day,goldCounter.textContent=gameState.gold}function renderFarm(){farmPlot.innerHTML="";for(const e of gameState.plots){const t=document.createElement("div");t.className="plant-plot rounded-lg flex items-center justify-center",t.dataset.id=e.id,e.plant?(t.innerHTML="",t.appendChild(((e,t)=>{const o=document.createElement("img");o.src=t.img,o.alt=e.name,o.className="plant h-16 w-16 sm:h-20 sm:w-20 object-contain",e.problem&&o.classList.add("plant-problem");return o})(e.plant,PLANT_DB[e.plant.type].growthStages.slice().reverse().find(t=>e.plant.daysOld>=t.days)))):t.innerHTML='<div class="text-4xl text-white/30">+</div>',t.onclick=()=>onPlotClick(e.id),farmPlot.appendChild(t)}}function renderActionPanel(){inventoryList.innerHTML="",0===gameState.inventory.length?inventoryList.innerHTML='<p class="text-center text-gray-400 text-sm">Kho trống.</p>':Object.entries(gameState.inventory.reduce((e,t)=>(e[t]=e[t]+1||1,e),{})).forEach(([e,t])=>{const o=ITEM_DB[e],a=document.createElement("div");a.className="bg-white p-2 rounded-md shadow-sm flex justify-between items-center",a.innerHTML=`<div><p class="font-bold text-sm">${o.name} (x${t})</p><p class="text-xs text-gray-500">${o.description}</p></div>`,inventoryList.appendChild(a)}),harvestedRiceEl.textContent=gameState.harvestedRice}function showModal(e){modalContent.innerHTML=e,mainModal.classList.remove("modal-hidden")}function hideModal(){mainModal.classList.add("modal-hidden"),modalContent.innerHTML=""}function setupListeners(){nextDayBtn.addEventListener("click",nextDay),tabInventory.addEventListener("click",()=>switchTab("inventory")),tabMarket.addEventListener("click",()=>switchTab("market")),sellRiceBtn.addEventListener("click",sellRice)}function switchTab(e){"inventory"?(inventoryPanel.classList.remove("hidden"),marketPanel.classList.add("hidden"),tabInventory.classList.add("active"),tabMarket.classList.remove("active")):(inventoryPanel.classList.add("hidden"),marketPanel.classList.remove("hidden"),tabInventory.classList.remove("active"),tabMarket.classList.add("active"))}function onPlotClick(e){const t=gameState.plots.find(t=>t.id===e);if(t)if(t.plant){const o=t.plant,a=PLANT_DB[o.type],n=a.growthStages.slice().reverse().find(e=>o.daysOld>=e.days);o.problem?showModal(`<h2 class="text-2xl font-bold mb-2 text-center text-red-600">Cây Bị Bệnh!</h2><img src="${n.img}" class="h-24 w-24 mx-auto my-4 plant-problem" alt="[Hình ảnh Cây bệnh]"><p class="text-center text-gray-600 mb-4">${(l=o.problem,PROBLEM_DB[l]).symptom}</p><p class="text-center font-bold mb-4">${(l=o.problem,PROBLEM_DB[l]).diagnosisQuestion}</p><div class="space-y-3">${(l=o.problem,PROBLEM_DB[l]).diagnosisOptions.map(t=>`<button class="custom-btn w-full p-3 rounded-lg bg-gray-100 hover:bg-green-100" onclick="handleDiagnosis(${e}, '${t}')">${t}</button>`).join("")}</div><button class="custom-btn w-full p-2 mt-6 rounded-lg bg-gray-200" onclick="hideModal()">Đóng</button>`):o.daysOld>=a.maxGrowthDays?showModal(`<h2 class="text-2xl font-bold mb-2 text-center text-yellow-600">Lúa Đã Chín!</h2><img src="${n.img}" class="h-24 w-24 mx-auto my-4" alt="[Hình ảnh Lúa chín]"><p class="text-center text-gray-600 mb-4">Bạn có muốn thu hoạch bó lúa này không?</p><div class="flex gap-4"><button class="custom-btn flex-1 p-3 rounded-lg bg-gray-200" onclick="hideModal()">Để sau</button><button class="custom-btn flex-1 p-3 rounded-lg bg-green-500 text-white" onclick="handleHarvest(${e})">Thu Hoạch</button></div>`):showModal(`<h2 class="text-2xl font-bold mb-2 text-center text-green-600">Cây Khỏe Mạnh</h2><img src="${n.img}" class="h-24 w-24 mx-auto my-4" alt="[Hình ảnh Cây khỏe]"><p class="text-center text-gray-600">Cây ${a.name} đang phát triển tốt.</p><p class="text-center text-gray-600">Tuổi: ${o.daysOld} ngày.</p><button class="custom-btn w-full p-2 mt-6 rounded-lg bg-gray-200" onclick="hideModal()">Đóng</button>`);else{showModal(`<h2 class="text-2xl font-bold mb-4 text-center">Ô Đất Trống</h2><div class="space-y-4"><button class="custom-btn w-full p-4 rounded-lg bg-green-500 text-white text-left" onclick="handlePlant(${e})"><span class="font-bold">Trồng Lúa</span><br><span class="text-sm">Chi phí: 10 Vàng</span></button><button class="custom-btn w-full p-4 rounded-lg bg-blue-500 text-white text-left" onclick="showShop()"><span class="font-bold">Mua Vật Tư</span><br><span class="text-sm">Mua thuốc, thiên địch...</span></button></div><button class="custom-btn w-full p-2 mt-6 rounded-lg bg-gray-200" onclick="hideModal()">Đóng</button>`)}}var l;function handlePlant(e){gameState.gold>=10?(gameState.gold-=10,gameState.plots.find(t=>t.id===e).plant={type:"rice",daysOld:0,problem:null},hideModal(),renderAll(),saveGame()):alert("Không đủ vàng!")}function handleHarvest(e){gameState.plots.find(t=>t.id===e).plant=null,gameState.harvestedRice++,hideModal(),renderAll(),saveGame()}function handleDiagnosis(e,t){const o=gameState.plots.find(t=>t.id===e),a=PROBLEM_DB[o.plant.problem];t===a.correctAnswer?showModal(`<h2 class="text-2xl font-bold mb-2 text-center text-green-600">Chẩn Đoán Đúng!</h2><p class="text-center mb-4">Bây giờ hãy chọn một biện pháp để xử lý <strong>${a.name}</strong>.</p><div class="space-y-3">${(()=>{let t="";return gameState.inventory.forEach(o=>{const a=ITEM_DB[o];a.target===e.plant.problem&&(t+=`<button class="custom-btn w-full p-3 rounded-lg bg-blue-100 hover:bg-blue-200 text-left" onclick="applyTreatment(${e}, '${o}')"><p class="font-bold">${a.name}</p><p class="text-sm">${a.description}</p></button>`)}),""===t&&(t='<p class="text-center text-red-500 p-4 bg-red-50 rounded-lg">Bạn không có vật phẩm nào phù hợp trong kho. Hãy vào Chợ Vật Tư để mua!</p>'),t})()}</div><button class="custom-btn w-full p-2 mt-6 rounded-lg bg-gray-200" onclick="hideModal()">Đóng</button>`):(gameState.gold-=20,gameState.gold<0&&(gameState.gold=0),showModal('<h2 class="text-2xl font-bold mb-2 text-center text-red-600">Chẩn Đoán Sai!</h2><p class="text-center text-gray-600">Chẩn đoán không chính xác. Bạn bị trừ 20 Vàng chi phí tư vấn. Cây vẫn còn bị bệnh.</p><button class="custom-btn w-full p-2 mt-6 rounded-lg bg-gray-200" onclick="hideModal()">Đã hiểu</button>'),renderStatusBar(),saveGame())}function applyTreatment(e,t){const o=gameState.plots.find(t=>t.id===e);o.plant.problem=null;const a=gameState.inventory.indexOf(t);a>-1&&gameState.inventory.splice(a,1),hideModal(),renderAll(),saveGame()}function showShop(){showModal(`<h2 class="text-2xl font-bold mb-4 text-center">Cửa Hàng Vật Tư</h2><div class="space-y-3 max-h-80 overflow-y-auto">${Object.keys(ITEM_DB).map(e=>{const t=ITEM_DB[e];return`<div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg"><div><p class="font-bold">${t.name}</p><p class="text-sm text-gray-500">${t.description}</p></div><button class="custom-btn bg-green-500 text-white font-bold py-2 px-4 rounded-lg" onclick="buyItem('${e}')">${t.cost} Vàng</button></div>`}).join("")}</div><button class="custom-btn w-full p-2 mt-6 rounded-lg bg-gray-200" onclick="hideModal()">Đóng</button>`)}function buyItem(e){const t=ITEM_DB[e];gameState.gold>=t.cost?(gameState.gold-=t.cost,gameState.inventory.push(e),hideModal(),renderAll(),saveGame()):alert("Không đủ vàng!")}function sellRice(){gameState.harvestedRice>0&&(gameState.gold+=50*gameState.harvestedRice,gameState.harvestedRice=0,renderAll(),saveGame(),showModal(`<h2 class="text-2xl font-bold mb-2 text-center text-green-600">Bán Thành Công!</h2><p class="text-center text-gray-600">Bạn đã bán hết lúa và thu về ${50*gameState.harvestedRice} Vàng.</p><button class="custom-btn w-full p-2 mt-6 rounded-lg bg-gray-200" onclick="hideModal()">Tuyệt vời!</button>`))}document.addEventListener("DOMContentLoaded",()=>{initGame(),switchTab("inventory")}); </script> </body> </html>
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nông Trại Tri Thức</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Quicksand', sans-serif; background-color: #EFFAF3; }
+        .farm-bg { background-color: #A47551; background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%238c6239' fill-opacity='0.4' fill-rule='evenodd'%3E%3Cpath d='M0 40L40 0H20L0 20M40 40V20L20 40'/%3E%3C/g%3E%3C/svg%3E"); }
+        .plant-plot { background-color: rgba(0,0,0,0.1); border: 2px dashed rgba(255,255,255,0.2); transition: background-color 0.3s; }
+        .plant-plot:hover { background-color: rgba(0,0,0,0.2); }
+        .plant { transition: transform 0.3s ease, filter 0.5s ease; cursor: pointer; image-rendering: pixelated; }
+        .plant:hover { transform: scale(1.15); }
+        .plant-problem { animation: pulse-problem 1.5s infinite; }
+        @keyframes pulse-problem { 0% { filter: drop-shadow(0 0 2px rgba(255, 59, 59, 0.9)); } 50% { filter: drop-shadow(0 0 10px rgba(255, 59, 59, 0.5)); } 100% { filter: drop-shadow(0 0 2px rgba(255, 59, 59, 0.9)); } }
+        .modal { transition: opacity 0.3s ease, transform 0.3s ease; }
+        .modal-hidden { opacity: 0; transform: translateY(20px); pointer-events: none; }
+        .custom-btn { transition: all 0.2s ease; }
+        .custom-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
+        .tab-btn.active { background-color: #16a34a; color: white; }
+    </style>
+</head>
+<body class="text-gray-800 flex flex-col items-center justify-center min-h-screen p-2 sm:p-4">
+    <div class="w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-1 bg-white/70 backdrop-blur-sm p-4 rounded-2xl shadow-lg border border-green-200 flex flex-col">
+            <header class="text-center mb-4"><h1 class="text-3xl font-bold text-green-800">Nông Trại Tri Thức</h1><p class="text-md text-green-600">Phiên bản 2.0</p></header>
+            <div id="status-bar" class="grid grid-cols-2 gap-4 text-center mb-4"><div class="bg-green-100 p-3 rounded-lg"><div class="font-bold text-green-800">Ngày</div><div id="day-counter" class="text-2xl font-bold">1</div></div><div class="bg-yellow-100 p-3 rounded-lg"><div class="font-bold text-yellow-800">Vàng</div><div id="gold-counter" class="text-2xl font-bold">500</div></div></div>
+            <div class="flex-grow bg-gray-50 rounded-lg p-4"><div class="flex border-b mb-4"><button id="tab-inventory" class="tab-btn flex-1 p-2 font-bold text-gray-600">Kho Vật Tư</button><button id="tab-market" class="tab-btn flex-1 p-2 font-bold text-gray-600">Chợ Nông Sản</button></div><div id="inventory-panel"><p class="text-center text-sm text-gray-500 mb-2">Vật phẩm bạn đang có.</p><div id="inventory-list" class="space-y-2 max-h-60 overflow-y-auto"></div></div><div id="market-panel" class="hidden"><p class="text-center text-sm text-gray-500 mb-2">Bán lúa đã thu hoạch tại đây.</p><div id="market-info" class="text-center"><img src="https://i.imgur.com/2J2Gqga.png" alt="[Hình ảnh Bó lúa]" class="w-20 h-20 mx-auto"><p class="text-lg font-bold">Lúa Tươi: <span id="harvested-rice">0</span> bó</p><p class="text-sm text-gray-500">Giá bán: 50 Vàng / bó</p><button id="sell-rice-btn" class="custom-btn mt-4 bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg w-full">Bán Hết</button></div></div></div>
+            <footer class="text-center mt-4"><button id="next-day-btn" class="custom-btn bg-blue-600 text-white font-bold py-3 px-8 rounded-full shadow-lg w-full">Qua Ngày Mới</button></footer>
+        </div>
+        <main class="lg:col-span-2 farm-bg w-full rounded-2xl shadow-inner p-4 sm:p-6"><div id="farm-plot" class="grid grid-cols-4 sm:grid-cols-5 gap-4 h-full"></div></main>
+    </div>
+    <div id="main-modal" class="modal modal-hidden fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50"><div id="modal-content" class="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 w-full max-w-lg transform"></div></div>
+    <script>
+        // --- CONFIG & DATABASE ---
+        const PLANT_DB = {
+            rice: {
+                name: "Lúa",
+                growthStages: [
+                    { stage: 0, days: 0, img: 'https://i.imgur.com/JtB2qN5.png' }, // Mạ
+                    { stage: 1, days: 3, img: 'https://i.imgur.com/dEclp6s.png' }, // Đẻ nhánh
+                    { stage: 2, days: 6, img: 'https://i.imgur.com/e37sTzE.png' }, // Trổ đòng
+                    { stage: 3, days: 9, img: 'https://i.imgur.com/2J2Gqga.png' }, // Chín
+                ],
+                maxGrowthDays: 9
+            }
+        };
+
+        const PROBLEM_DB = {
+            dao_on: {
+                name: 'Bệnh Đạo ôn',
+                symptom: 'Trên lá có các vết bệnh hình thoi, tâm màu xám tro.',
+                diagnosisQuestion: 'Dựa vào triệu chứng, đây là bệnh gì?',
+                diagnosisOptions: ['Bệnh Khô vằn', 'Bệnh Đạo ôn', 'Bệnh Vàng lá'],
+                correctAnswer: 'Bệnh Đạo ôn'
+            },
+            ray_nau: {
+                name: 'Rầy nâu',
+                symptom: 'Cây lúa bị vàng, khô héo, có nhiều rầy nâu bám ở gốc.',
+                diagnosisQuestion: 'Quan sát gốc cây, tác nhân gây hại là gì?',
+                diagnosisOptions: ['Nhện gié', 'Sâu đục thân', 'Rầy nâu'],
+                correctAnswer: 'Rầy nâu'
+            }
+        };
+
+        const ITEM_DB = {
+            bio_fungicide: {
+                name: 'Thuốc trừ nấm sinh học',
+                description: 'Dùng cho bệnh Đạo ôn. An toàn cho đất.',
+                cost: 80,
+                target: 'dao_on',
+            },
+            chemical_insecticide: {
+                name: 'Thuốc trừ sâu hóa học',
+                description: 'Diệt trừ Rầy nâu. Có thể ảnh hưởng đất.',
+                cost: 60,
+                target: 'ray_nau',
+            },
+            ladybug: {
+                name: 'Bọ rùa (Thiên địch)',
+                description: 'Thả bọ rùa để ăn Rầy nâu. Biện pháp bền vững.',
+                cost: 150,
+                target: 'ray_nau',
+            }
+        };
+
+        // --- GAME STATE ---
+        let gameState = {
+            day: 1,
+            gold: 500,
+            plots: [],
+            inventory: [],
+            harvestedRice: 0,
+        };
+
+        // --- DOM ELEMENTS ---
+        const farmPlot = document.getElementById('farm-plot');
+        const dayCounter = document.getElementById('day-counter');
+        const goldCounter = document.getElementById('gold-counter');
+        const nextDayBtn = document.getElementById('next-day-btn');
+        const mainModal = document.getElementById('main-modal');
+        const modalContent = document.getElementById('modal-content');
+
+        const tabInventory = document.getElementById('tab-inventory');
+        const tabMarket = document.getElementById('tab-market');
+        const inventoryPanel = document.getElementById('inventory-panel');
+        const marketPanel = document.getElementById('market-panel');
+        const inventoryList = document.getElementById('inventory-list');
+        const harvestedRiceEl = document.getElementById('harvested-rice');
+        const sellRiceBtn = document.getElementById('sell-rice-btn');
+
+
+        // --- GAME ENGINE ---
+        function initGame() {
+            loadGame(); // Tải game đã lưu nếu có
+            if (gameState.plots.length === 0) {
+                // Trạng thái game mới
+                for (let i = 0; i < 15; i++) {
+                    gameState.plots.push({ id: i, plant: null });
+                }
+            }
+            renderAll();
+            setupListeners();
+        }
+
+        function saveGame() {
+            localStorage.setItem('nongTraiTriThucSave', JSON.stringify(gameState));
+        }
+
+        function loadGame() {
+            const savedGame = localStorage.getItem('nongTraiTriThucSave');
+            if (savedGame) {
+                gameState = JSON.parse(savedGame);
+            }
+        }
+
+        function nextDay() {
+            gameState.day++;
+            // Cập nhật cây trồng
+            gameState.plots.forEach(plot => {
+                if (plot.plant) {
+                    // Cây bị bệnh sẽ không phát triển
+                    if (plot.plant.problem) return;
+
+                    plot.plant.daysOld++;
+                }
+            });
+
+            // Sự kiện ngẫu nhiên: xuất hiện bệnh
+            const plantedPlots = gameState.plots.filter(p => p.plant && !p.plant.problem);
+            if (plantedPlots.length > 0 && Math.random() < 0.25) { // 25% cơ hội mỗi ngày
+                const plotToInfect = plantedPlots[Math.floor(Math.random() * plantedPlots.length)];
+                const problemKeys = Object.keys(PROBLEM_DB);
+                const problemToAssign = problemKeys[Math.floor(Math.random() * problemKeys.length)];
+                plotToInfect.plant.problem = problemToAssign;
+            }
+
+            renderAll();
+            saveGame();
+        }
+
+        // --- UI & RENDERING ---
+        function renderAll() {
+            renderFarm();
+            renderStatusBar();
+            renderActionPanel();
+        }
+
+        function renderStatusBar() {
+            dayCounter.textContent = gameState.day;
+            goldCounter.textContent = gameState.gold;
+        }
+
+        function renderFarm() {
+            farmPlot.innerHTML = '';
+            gameState.plots.forEach(plot => {
+                const plotEl = document.createElement('div');
+                plotEl.className = 'plant-plot rounded-lg flex items-center justify-center';
+                plotEl.dataset.id = plot.id;
+
+                if (plot.plant) {
+                    const plant = plot.plant;
+                    const plantData = PLANT_DB[plant.type];
+                    const currentStage = plantData.growthStages
+                        .slice().reverse()
+                        .find(s => plant.daysOld >= s.days);
+
+                    const plantImg = document.createElement('img');
+                    plantImg.src = currentStage.img;
+                    plantImg.alt = plantData.name;
+                    plantImg.className = 'plant h-16 w-16 sm:h-20 sm:w-20 object-contain';
+                    if (plant.problem) {
+                        plantImg.classList.add('plant-problem');
+                    }
+                    plotEl.innerHTML = '';
+                    plotEl.appendChild(plantImg);
+                } else {
+                    plotEl.innerHTML = `<div class="text-4xl text-white/30">+</div>`;
+                }
+                plotEl.onclick = () => onPlotClick(plot.id);
+                farmPlot.appendChild(plotEl);
+            });
+        }
+
+        function renderActionPanel() {
+            // Inventory
+            inventoryList.innerHTML = '';
+            if (gameState.inventory.length === 0) {
+                inventoryList.innerHTML = '<p class="text-center text-gray-400 text-sm">Kho trống.</p>';
+            } else {
+                const itemCounts = gameState.inventory.reduce((acc, itemKey) => {
+                    acc[itemKey] = (acc[itemKey] || 0) + 1;
+                    return acc;
+                }, {});
+
+                for (const itemKey in itemCounts) {
+                    const itemData = ITEM_DB[itemKey];
+                    const count = itemCounts[itemKey];
+                    const itemEl = document.createElement('div');
+                    itemEl.className = 'bg-white p-2 rounded-md shadow-sm flex justify-between items-center';
+                    itemEl.innerHTML = `
+                        <div>
+                            <p class="font-bold text-sm">${itemData.name} (x${count})</p>
+                            <p class="text-xs text-gray-500">${itemData.description}</p>
+                        </div>
+                    `;
+                    inventoryList.appendChild(itemEl);
+                }
+            }
+
+            // Market
+            harvestedRiceEl.textContent = gameState.harvestedRice;
+        }
+
+        function showModal(htmlContent) {
+            modalContent.innerHTML = htmlContent;
+            mainModal.classList.remove('modal-hidden');
+        }
+
+        function hideModal() {
+            mainModal.classList.add('modal-hidden');
+            modalContent.innerHTML = '';
+        }
+
+        // --- EVENT HANDLERS & ACTIONS ---
+        function setupListeners() {
+            nextDayBtn.addEventListener('click', nextDay);
+            tabInventory.addEventListener('click', () => switchTab('inventory'));
+            tabMarket.addEventListener('click', () => switchTab('market'));
+            sellRiceBtn.addEventListener('click', sellRice);
+        }
+
+        function switchTab(tabName) {
+            if (tabName === 'inventory') {
+                inventoryPanel.classList.remove('hidden');
+                marketPanel.classList.add('hidden');
+                tabInventory.classList.add('active');
+                tabMarket.classList.remove('active');
+            } else {
+                inventoryPanel.classList.add('hidden');
+                marketPanel.classList.remove('hidden');
+                tabInventory.classList.remove('active');
+                tabMarket.classList.add('active');
+            }
+        }
+
+        function onPlotClick(plotId) {
+            const plot = gameState.plots.find(p => p.id === plotId);
+            if (!plot) return;
+
+            if (plot.plant) {
+                // Cây đã được trồng
+                const plant = plot.plant;
+                const plantData = PLANT_DB[plant.type];
+                const currentStage = plantData.growthStages.slice().reverse().find(s => plant.daysOld >= s.days);
+
+                if (plant.problem) {
+                    // Cây bị bệnh -> Chẩn đoán
+                    const problemData = PROBLEM_DB[plant.problem];
+                    let optionsHTML = problemData.diagnosisOptions.map(opt => 
+                        `<button class="custom-btn w-full p-3 rounded-lg bg-gray-100 hover:bg-green-100" onclick="handleDiagnosis(${plotId}, '${opt}')">${opt}</button>`
+                    ).join('');
+
+                    showModal(`
+                        <h2 class="text-2xl font-bold mb-2 text-center text-red-600">Cây Bị Bệnh!</h2>
+                        <img src="${currentStage.img}" class="h-24 w-24 mx-auto my-4 plant-problem" alt="[Hình ảnh Cây bệnh]">
+                        <p class="text-center text-gray-600 mb-4">${problemData.symptom}</p>
+                        <p class="text-center font-semibold mb-4">${problemData.diagnosisQuestion}</p>
+                        <div class="space-y-3">${optionsHTML}</div>
+                        <button class="custom-btn w-full p-2 mt-6 rounded-lg bg-gray-200" onclick="hideModal()">Đóng</button>
+                    `);
+                } else if (plant.daysOld >= plantData.maxGrowthDays) {
+                    // Cây đã chín -> Thu hoạch
+                    showModal(`
+                        <h2 class="text-2xl font-bold mb-2 text-center text-yellow-600">Lúa Đã Chín!</h2>
+                        <img src="${currentStage.img}" class="h-24 w-24 mx-auto my-4" alt="[Hình ảnh Lúa chín]">
+                        <p class="text-center text-gray-600 mb-4">Bạn có muốn thu hoạch bó lúa này không?</p>
+                        <div class="flex gap-4">
+                            <button class="custom-btn flex-1 p-3 rounded-lg bg-gray-200" onclick="hideModal()">Để sau</button>
+                            <button class="custom-btn flex-1 p-3 rounded-lg bg-green-500 text-white" onclick="handleHarvest(${plotId})">Thu Hoạch</button>
+                        </div>
+                    `);
+                } else {
+                    // Cây khỏe mạnh
+                     showModal(`
+                        <h2 class="text-2xl font-bold mb-2 text-center text-green-600">Cây Khỏe Mạnh</h2>
+                        <img src="${currentStage.img}" class="h-24 w-24 mx-auto my-4" alt="[Hình ảnh Cây khỏe]">
+                        <p class="text-center text-gray-600">Cây ${plantData.name} đang phát triển tốt.</p>
+                        <p class="text-center text-gray-600">Tuổi: ${plant.daysOld} ngày.</p>
+                        <button class="custom-btn w-full p-2 mt-6 rounded-lg bg-gray-200" onclick="hideModal()">Đóng</button>
+                    `);
+                }
+            } else {
+                // Ô đất trống -> Trồng cây hoặc mua vật tư
+                showModal(`
+                    <h2 class="text-2xl font-bold mb-4 text-center">Ô Đất Trống</h2>
+                    <div class="space-y-4">
+                         <button class="custom-btn w-full p-4 rounded-lg bg-green-500 text-white text-left" onclick="handlePlant(${plotId})">
+                            <span class="font-bold">Trồng Lúa</span><br>
+                            <span class="text-sm">Chi phí: 10 Vàng</span>
+                        </button>
+                        <button class="custom-btn w-full p-4 rounded-lg bg-blue-500 text-white text-left" onclick="showShop()">
+                            <span class="font-bold">Mua Vật Tư</span><br>
+                            <span class="text-sm">Mua thuốc, thiên địch...</span>
+                        </button>
+                    </div>
+                    <button class="custom-btn w-full p-2 mt-6 rounded-lg bg-gray-200" onclick="hideModal()">Đóng</button>
+                `);
+            }
+        }
+
+        function handlePlant(plotId) {
+            if (gameState.gold >= 10) {
+                gameState.gold -= 10;
+                const plot = gameState.plots.find(p => p.id === plotId);
+                plot.plant = {
+                    type: 'rice',
+                    daysOld: 0,
+                    problem: null
+                };
+                hideModal();
+                renderAll();
+                saveGame();
+            } else {
+                alert("Không đủ vàng!");
+            }
+        }
+
+        function handleHarvest(plotId) {
+            const plot = gameState.plots.find(p => p.id === plotId);
+            plot.plant = null;
+            gameState.harvestedRice++;
+            hideModal();
+            renderAll();
+            saveGame();
+        }
+
+        function handleDiagnosis(plotId, selectedAnswer) {
+            const plot = gameState.plots.find(p => p.id === plotId);
+            const problemData = PROBLEM_DB[plot.plant.problem];
+            if (selectedAnswer === problemData.correctAnswer) {
+                // Chẩn đoán đúng -> Chọn biện pháp
+                let treatmentOptionsHTML = '';
+                const availableItems = gameState.inventory.filter(itemKey => ITEM_DB[itemKey].target === plot.plant.problem);
+
+                if (availableItems.length > 0) {
+                    // Chỉ hiển thị mỗi loại vật phẩm một lần
+                    const uniqueItems = [...new Set(availableItems)];
+                    treatmentOptionsHTML = uniqueItems.map(itemKey => {
+                         const itemData = ITEM_DB[itemKey];
+                         return `<button class="custom-btn w-full p-3 rounded-lg bg-blue-100 hover:bg-blue-200 text-left" onclick="applyTreatment(${plotId}, '${itemKey}')">
+                            <p class="font-bold">${itemData.name}</p>
+                            <p class="text-sm">${itemData.description}</p>
+                        </button>`
+                    }).join('');
+                } else {
+                    treatmentOptionsHTML = `<p class="text-center text-red-500 p-4 bg-red-50 rounded-lg">Bạn không có vật phẩm nào phù hợp trong kho. Hãy vào Cửa Hàng Vật Tư để mua!</p>`;
+                }
+
+                showModal(`
+                    <h2 class="text-2xl font-bold mb-2 text-center text-green-600">Chẩn Đoán Đúng!</h2>
+                    <p class="text-center mb-4">Bây giờ hãy chọn một biện pháp để xử lý <strong>${problemData.name}</strong>.</p>
+                    <div class="space-y-3">${treatmentOptionsHTML}</div>
+                    <button class="custom-btn w-full p-2 mt-6 rounded-lg bg-gray-200" onclick="hideModal()">Đóng</button>
+                `);
+
+            } else {
+                // Chẩn đoán sai
+                gameState.gold -= 20; // Phí tư vấn sai
+                if (gameState.gold < 0) gameState.gold = 0;
+                showModal(`
+                    <h2 class="text-2xl font-bold mb-2 text-center text-red-600">Chẩn Đoán Sai!</h2>
+                    <p class="text-center text-gray-600">Chẩn đoán không chính xác. Bạn bị trừ 20 Vàng chi phí tư vấn. Cây vẫn còn bị bệnh.</p>
+                    <button class="custom-btn w-full p-2 mt-6 rounded-lg bg-gray-200" onclick="hideModal()">Đã hiểu</button>
+                `);
+                renderStatusBar();
+                saveGame();
+            }
+        }
+
+        function applyTreatment(plotId, itemKey) {
+            const plot = gameState.plots.find(p => p.id === plotId);
+            plot.plant.problem = null; // Chữa khỏi bệnh
+
+            // Xóa vật phẩm khỏi kho
+            const itemIndex = gameState.inventory.indexOf(itemKey);
+            if (itemIndex > -1) {
+                gameState.inventory.splice(itemIndex, 1);
+            }
+
+            hideModal();
+            renderAll();
+            saveGame();
+        }
+
+        function showShop() {
+            let shopItemsHTML = Object.keys(ITEM_DB).map(key => {
+                const item = ITEM_DB[key];
+                return `<div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                    <div>
+                        <p class="font-bold">${item.name}</p>
+                        <p class="text-sm text-gray-500">${item.description}</p>
+                    </div>
+                    <button class="custom-btn bg-green-500 text-white font-bold py-2 px-4 rounded-lg" onclick="buyItem('${key}')">${item.cost} Vàng</button>
+                </div>`;
+            }).join('');
+
+            showModal(`
+                <h2 class="text-2xl font-bold mb-4 text-center">Cửa Hàng Vật Tư</h2>
+                <div class="space-y-3 max-h-80 overflow-y-auto">${shopItemsHTML}</div>
+                <button class="custom-btn w-full p-2 mt-6 rounded-lg bg-gray-200" onclick="hideModal()">Đóng</button>
+            `);
+        }
+
+        function buyItem(itemKey) {
+            const itemData = ITEM_DB[itemKey];
+            if (gameState.gold >= itemData.cost) {
+                gameState.gold -= itemData.cost;
+                gameState.inventory.push(itemKey);
+                hideModal();
+                renderAll();
+                saveGame();
+            } else {
+                alert("Không đủ vàng!");
+            }
+        }
+
+        function sellRice() {
+            if (gameState.harvestedRice > 0) {
+                const earnings = gameState.harvestedRice * 50;
+                const riceSold = gameState.harvestedRice;
+                gameState.gold += earnings;
+                gameState.harvestedRice = 0;
+                renderAll();
+                saveGame();
+                showModal(`
+                    <h2 class="text-2xl font-bold mb-2 text-center text-green-600">Bán Thành Công!</h2>
+                    <p class="text-center text-gray-600">Bạn đã bán ${riceSold} bó lúa và thu về ${earnings} Vàng.</p>
+                    <button class="custom-btn w-full p-2 mt-6 rounded-lg bg-gray-200" onclick="hideModal()">Tuyệt vời!</button>
+                `);
+            }
+        }
+
+
+        // --- KHỞI ĐỘNG GAME ---
+        document.addEventListener('DOMContentLoaded', () => {
+            initGame();
+            switchTab('inventory'); // Mặc định mở tab kho
+        });
+
+    </script>
+</body>
+</html>
